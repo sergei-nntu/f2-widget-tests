@@ -1,0 +1,21 @@
+{
+  "name": "widget_autotests",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "npx playwright test",
+    "allure:generate": "npx allure generate allure-results --clean --single-file -o allure-report",
+    "allure:open": "open allure-report/index.html",
+    "report": "npm run allure:generate && npm run allure:open"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@types/node": "^25.5.2",
+    "allure-commandline": "^2.38.1",
+    "allure-playwright": "^3.7.1"
+  }
+}
