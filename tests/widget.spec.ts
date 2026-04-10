@@ -166,10 +166,12 @@ test.describe('Chatbot Widget Tests', () => {
       await widgetPage.closeWidget();
       await widgetPage.fastForwardTime(6, 0);
 
+      await widgetPage.startStatusMonitoring();
+
       await widgetPage.openWidget();
 
-      await widgetPage.verifyStatusSequence(widgetPage.websocketStatus, [...STATUS_SEQUENCES.WS_REINIT]);
-      await widgetPage.verifyStatusSequence(widgetPage.pollingStatus, [...STATUS_SEQUENCES.POLLING_REINIT]);
+      await widgetPage.verifyStatusSequence('ws', [...STATUS_SEQUENCES.WS_REINIT]);
+      await widgetPage.verifyStatusSequence('poll', [...STATUS_SEQUENCES.POLLING_REINIT]);
 
       await expect(widgetPage.ratingDialog).toBeVisible();
       await expect(widgetPage.userMessage).toBeHidden();

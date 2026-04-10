@@ -288,24 +288,42 @@ export class WidgetPage {
         await this.loadingSpinner.waitFor({ state: 'hidden', timeout: 15000 });
     }
 
+    async startStatusMonitoring() {
+        await this.page.evaluate(() => {
+            window['_statusHistory'] = new Map();
 
-    async verifyStatusSequence(locator: Locator, expectedStatuses: string[]) {
-        await locator.waitFor({ state: 'attached', timeout: 10000 });
+            const observeElement = (selector, key) => {
+                const target = document.querySelector(selector);
+                if (target) {
+                    const history = new Set();
+                    history.add(target.textContent?.trim());
+                    window['_statusHistory'].set(key, history);
 
-        const handle = await locator.elementHandle();
+                    const observer = new MutationObserver(() => {
+                        const txt = target.textContent?.trim();
+                        if (txt) window['_statusHistory'].get(key).add(txt);
+                    });
+                    observer.observe(target, { childList: true, characterData: true, subtree: true });
+                    window[`_obs_${key}`] = observer;
+                }
+            };
 
-        await this.page.waitForFunction(
-            ({ el, statuses }) => {
-                if (!window['_statusHistory']) window['_statusHistory'] = new Set();
+            const checkExist = setInterval(() => {
+                observeElement('div[title="WebSocket"] span', 'ws');
+                observeElement('div[title="Polling"] span', 'poll');
+                if (window['_statusHistory'].size === 2) clearInterval(checkExist);
+            }, 100);
 
-                const currentText = el.textContent?.trim();
-                if (currentText) window['_statusHistory'].add(currentText);
+            window['_statusCheckInterval'] = checkExist;
+        });
+    }
 
-                return statuses.every(s => window['_statusHistory'].has(s));
-            },
-            { el: handle, statuses: expectedStatuses },
-            { timeout: 20000 }
-        );
+    async verifyStatusSequence(key: 'ws' | 'poll', expectedStatuses: string[]) {
+        await this.page.waitForFunction(({ k, statuses }) => {
+            const history = window['_statusHistory']?.get(k);
+
+            return history instanceof Set && statuses.every(s => history.has(s));
+        }, { k: key, statuses: expectedStatuses }, { timeout: 20000 });
     }
 
 }
