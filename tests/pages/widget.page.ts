@@ -290,6 +290,10 @@ export class WidgetPage {
 
 
     async verifyStatusSequence(locator: Locator, expectedStatuses: string[]) {
+        await locator.waitFor({ state: 'attached', timeout: 10000 });
+
+        const handle = await locator.elementHandle();
+
         await this.page.waitForFunction(
             ({ el, statuses }) => {
                 if (!window['_statusHistory']) window['_statusHistory'] = new Set();
@@ -299,7 +303,7 @@ export class WidgetPage {
 
                 return statuses.every(s => window['_statusHistory'].has(s));
             },
-            { el: await locator.elementHandle(), statuses: expectedStatuses },
+            { el: handle, statuses: expectedStatuses },
             { timeout: 20000 }
         );
     }
