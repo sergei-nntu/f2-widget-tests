@@ -119,7 +119,9 @@ export class WidgetPage {
 
         const responseText = this.botResponseCard.locator('.text');
 
-        await expect(responseText).toBeVisible();
+        await responseText.waitFor({ state: 'visible', timeout: 15000 })
+
+        await expect(responseText).not.toBeEmpty({ timeout: 10000 });
         await expect(responseText).toHaveText(/^[a-zA-Z0-9\s.,!?'"-]+$/);
     }
 
@@ -129,7 +131,9 @@ export class WidgetPage {
 
         const responseText = this.botResponseCard.locator('.text');
 
-        await expect(responseText).toBeVisible();
+        await responseText.waitFor({ state: 'visible', timeout: 15000 })
+
+        await expect(responseText).not.toBeEmpty({ timeout: 10000 });
         await expect(responseText).toHaveText(/[\u0600-\u06FF]/);
     }
 
