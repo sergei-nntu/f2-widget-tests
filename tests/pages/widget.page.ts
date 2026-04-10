@@ -291,39 +291,73 @@ export class WidgetPage {
     async startStatusMonitoring() {
         await this.page.evaluate(() => {
             window['_statusHistory'] = new Map();
+            window['_statusHistory'].set('ws', new Set());
+            window['_statusHistory'].set('poll', new Set());
 
-            const observeElement = (selector, key) => {
-                const target = document.querySelector(selector);
-                if (target) {
-                    const history = new Set();
-                    history.add(target.textContent?.trim());
-                    window['_statusHistory'].set(key, history);
-
-                    const observer = new MutationObserver(() => {
-                        const txt = target.textContent?.trim();
-                        if (txt) window['_statusHistory'].get(key).add(txt);
-                    });
-                    observer.observe(target, { childList: true, characterData: true, subtree: true });
-                    window[`_obs_${key}`] = observer;
-                }
+            const selectors = {
+                'ws': 'div[title="WebSocket"] span',
+                'poll': 'div[title="Polling"] span'
             };
 
-            const checkExist = setInterval(() => {
-                observeElement('div[title="WebSocket"] span', 'ws');
-                observeElement('div[title="Polling"] span', 'poll');
-                if (window['_statusHistory'].size === 2) clearInterval(checkExist);
-            }, 100);
+            const rootObserver = new MutationObserver(() => {
+                for (const [key, selector] of Object.entries(selectors)) {
+                    const el = document.querySelector(selector);
+                    if (el) {
+                        const txt = el.textContent?.trim();
+                        if (txt && !window['_statusHistory'].get(key).has(txt)) {
+                            window['_statusHistory'].get(key).add(txt);
+                            console.log(`[MONITOR] Found ${key} status: "${txt}"`);
+                        }
 
-            window['_statusCheckInterval'] = checkExist;
+                        if (!window[`_obs_${key}`]) {
+                            const subObs = new MutationObserver(() => {
+                                const t = el.textContent?.trim();
+                                if (t && !window['_statusHistory'].get(key).has(t)) {
+                                    window['_statusHistory'].get(key).add(t);
+                                    console.log(`[MONITOR] Changed ${key} status to: "${t}"`);
+                                }
+                            });
+                            subObs.observe(el, { childList: true, characterData: true, subtree: true });
+                            window[`_obs_${key}`] = subObs;
+                        }
+                    }
+                }
+            });
+
+            rootObserver.observe(document.body, { childList: true, subtree: true });
+            window['_rootObserver'] = rootObserver;
+            console.log('[MONITOR] Global observer started');
         });
     }
 
-    async verifyStatusSequence(key: 'ws' | 'poll', expectedStatuses: string[]) {
-        await this.page.waitForFunction(({ k, statuses }) => {
-            const history = window['_statusHistory']?.get(k);
 
-            return history instanceof Set && statuses.every(s => history.has(s));
-        }, { k: key, statuses: expectedStatuses }, { timeout: 20000 });
+    async verifyStatusSequence(key: 'ws' | 'poll', expectedStatuses: string[]) {
+        const checkStatuses = async () => {
+            return await this.page.evaluate(({ k, statuses }) => {
+                const history = window['_statusHistory']?.get(k);
+                return history && statuses.every(s => history.has(s));
+            }, { k: key, statuses: expectedStatuses });
+        };
+
+        for (let i = 0; i < 10; i++) {
+            const isComplete = await checkStatuses();
+            if (isComplete) break;
+
+            await this.page.clock.runFor(1000);
+            await this.page.waitForTimeout(100);
+        }
+
+        try {
+            await this.page.waitForFunction(({ k, statuses }) => {
+                const history = window['_statusHistory']?.get(k);
+                return history && statuses.every(s => history.has(s));
+            }, { k: key, statuses: expectedStatuses }, { timeout: 5000 });
+        } catch (error) {
+            const actual = await this.page.evaluate((k) =>
+                Array.from(window['_statusHistory']?.get(k) || []), key
+            );
+            throw new Error(`Timeout! Key: ${key}. Expected: [${expectedStatuses}]. Actually caught: [${actual}]`);
+        }
     }
 
 }
