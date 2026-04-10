@@ -158,7 +158,7 @@ test.describe('Chatbot Widget Tests', () => {
       await expect(widgetPage.botResponseCard).toBeHidden();
     });
 
-    test('Verify step-by-step status re-initialization and clearing old session', async ({page}) => {
+    test('Verify step-by-step status re-initialization and clearing old session', async () => {
 
       await widgetPage.sendMessage(CHAT_MESSAGES.USER_HELLO_EN);
       await widgetPage.verifyEnglishLTR();
